@@ -1,0 +1,522 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Location for all resources."
+      }
+    },
+    "env": {
+      "type": "string",
+      "metadata": {
+        "description": "Specifies the environment."
+      }
+    },
+    "project_name": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the project."
+      }
+    },
+    "project_abbreviation": {
+      "type": "string",
+      "metadata": {
+        "description": "Project abbreviation for naming convention."
+      }
+    },
+    "company_abbreviation": {
+      "type": "string",
+      "metadata": {
+        "description": "Company abbreviation for naming convention."
+      }
+    },
+    "keyvault_owner_id": {
+      "type": "string",
+      "metadata": {
+        "description": "Specifies the object ID of a user, service principal or security group in the Azure Active Directory tenant for the vault. The object ID must be unique for the list of access policies. Get it by using Get-AzADUser or Get-AzADServicePrincipal cmdlets."
+      }
+    },
+    "devops_principal_id": {
+      "type": "string",
+      "metadata": {
+        "description": "Specifies the object ID of devops connection that should be assigned to key vault access policies."
+      }
+    },
+    "tags": {
+      "type": "object"
+    },
+    "aciproxy": {
+      "type": "object"
+    },
+    "appserviceplan": {
+      "type": "object"
+    },
+    "functionappstorage": {
+      "type": "object"
+    },
+    "appinsights": {
+      "type": "object"
+    },
+    "storage": {
+      "type": "object"
+    },
+    "keyvault": {
+      "type": "object"
+    },
+    "containerRegistry": {
+      "type": "object"
+    },
+    "datafactory": {
+      "type": "object"
+    }
+  },
+  "variables": {
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Web/sites",
+      "apiVersion": "2019-08-01",
+      "location": "[parameters('location')]",
+      "name": "[parameters('aciproxy').name]",
+      "tags": "[parameters('tags')]",
+      "kind": "[parameters('aciproxy').kind]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/serverfarms', parameters('appserviceplan').name)]",
+        "[resourceId('Microsoft.Storage/storageAccounts', parameters('functionappstorage').name)]",
+        "[resourceId('Microsoft.Insights/components', parameters('appinsights').name)]"
+      ],
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', parameters('appserviceplan').name)]",
+        "hostingEnvironment": "[parameters('appserviceplan').properties.hostingEnvironment]",
+        "enabled": true,
+        "httpsOnly": true,
+        "clientAffinityEnabled": false,
+        "siteConfig": {
+          "linuxFxVersion": "[parameters('aciproxy').linuxFxVersion]",
+          "appSettings": [
+            {
+              "name": "FUNCTIONS_WORKER_RUNTIME",
+              "value": "[parameters('aciproxy').runtimeStack]"
+            },
+            {
+              "name": "FUNCTIONS_EXTENSION_VERSION",
+              "value": "~3"
+            },
+            {
+              "name": "AzureWebJobsStorage",
+              "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('functionappstorage').name, ';AccountKey=', listkeys(resourceId('Microsoft.Storage/storageAccounts', parameters('functionappstorage').name), '2019-04-01').keys[0].value)]"
+            }
+          ]
+        }
+      },
+      "resources": [
+        {
+          "type": "config",
+          "apiVersion": "2019-08-01",
+          "name": "appsettings",
+          "dependsOn": [
+            "[resourceId('Microsoft.Web/sites', parameters('aciproxy').name)]",
+            "[resourceId('Microsoft.KeyVault/vaults/secrets', parameters('keyvault').name, 'ACI-PROXY-URL')]",
+            "[resourceId('Microsoft.KeyVault/vaults/secrets', parameters('keyvault').name, 'ACI-PROXY-KEY')]",
+            "[resourceId('Microsoft.KeyVault/vaults/secrets', parameters('keyvault').name, 'AzureWebJobsStorage')]",
+            "[resourceId('Microsoft.KeyVault/vaults/secrets', parameters('keyvault').name, 'AZURE-TENANT-ID')]",
+            "[resourceId('Microsoft.KeyVault/vaults/secrets', parameters('keyvault').name, 'AZURE-SUBSCRIPTION-ID')]",
+            "[resourceId('Microsoft.KeyVault/vaults/secrets', parameters('keyvault').name, 'AZURE-RESOURCE-GROUP')]"
+          ],
+          "properties": {
+            "FUNCTIONS_WORKER_RUNTIME": "[parameters('aciproxy').runtimeStack]",
+            "FUNCTIONS_EXTENSION_VERSION": "~3",
+            "FUNCTIONS_WORKER_PROCESS_COUNT": 10,
+            "ENV": "[parameters('env')]",
+            "AzureWebJobsStorage": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('functionappstorage').name, ';AccountKey=', listkeys(resourceId('Microsoft.Storage/storageAccounts', parameters('functionappstorage').name), '2019-04-01').keys[0].value)]",
+            "ACI_PROXY_URL": "[concat('@Microsoft.KeyVault(SecretUri=https://', parameters('keyvault').name, '.vault.azure.net/secrets/ACI-PROXY-URL/)')]",
+            "ACI_PROXY_KEY": "[concat('@Microsoft.KeyVault(SecretUri=https://', parameters('keyvault').name, '.vault.azure.net/secrets/ACI-PROXY-KEY/)')]",
+            "AZURE_TENANT_ID": "[concat('@Microsoft.KeyVault(SecretUri=https://', parameters('keyvault').name, '.vault.azure.net/secrets/AZURE-TENANT-ID/)')]",
+            "AZURE_SUBSCRIPTION_ID": "[concat('@Microsoft.KeyVault(SecretUri=https://', parameters('keyvault').name, '.vault.azure.net/secrets/AZURE-SUBSCRIPTION-ID/)')]",
+            "AZURE_RESOURCE_GROUP": "[concat('@Microsoft.KeyVault(SecretUri=https://', parameters('keyvault').name, '.vault.azure.net/secrets/AZURE-RESOURCE-GROUP/)')]",
+            "APPINSIGHTS_INSTRUMENTATIONKEY": "[reference(resourceId('Microsoft.Insights/components/', parameters('appinsights').name), '2015-05-01').InstrumentationKey]",
+            "APPLICATIONINSIGHTS_CONNECTION_STRING": "[reference(resourceId('Microsoft.Insights/components/', parameters('appinsights').name), '2015-05-01').ConnectionString]"
+          }
+        }
+      ]
+    },
+    {
+      "type": "Microsoft.Web/serverfarms",
+      "apiVersion": "2018-02-01",
+      "location": "[parameters('location')]",
+      "name": "[parameters('appserviceplan').name]",
+      "tags": "[parameters('tags')]",
+      "sku": "[parameters('appserviceplan').sku]",
+      "kind": "[parameters('appserviceplan').kind]",
+      "properties": "[parameters('appserviceplan').properties]"
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2019-04-01",
+      "location": "[parameters('location')]",
+      "name": "[parameters('functionappstorage').name]",
+      "tags": "[parameters('tags')]",
+      "sku": "[parameters('functionappstorage').sku]",
+      "kind": "[parameters('functionappstorage').kind]",
+      "properties": {
+        "supportsHttpsTrafficOnly": true
+      }
+    },
+    {
+      "type": "Microsoft.Insights/components",
+      "apiVersion": "2015-05-01",
+      "location": "[parameters('location')]",
+      "name": "[parameters('appinsights').name]",
+      "tags": "[parameters('tags')]",
+      "properties": {
+        "ApplicationId": "[parameters('appinsights').name]",
+        "Request_Source": "IbizaWebAppExtensionCreate"
+      }
+    },
+    {
+      "type": "Microsoft.DataFactory/factories",
+      "apiVersion": "2018-06-01",
+      "location": "[parameters('location')]",
+      "name": "[parameters('datafactory').name]",
+      "tags": "[parameters('tags')]",
+      "identity": {
+        "type": "SystemAssigned"
+      }
+    },
+    {
+      "type": "Microsoft.ContainerRegistry/registries",
+      "apiVersion": "2019-05-01",
+      "location": "[parameters('location')]",
+      "name": "[parameters('containerRegistry').name]",
+      "tags": "[parameters('tags')]",
+      "sku": "[parameters('containerRegistry').sku]",
+      "properties": {
+        "adminUserEnabled": "[parameters('containerRegistry').acrAdminUserEnabled]"
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2019-04-01",
+      "location": "[parameters('location')]",
+      "name": "[parameters('storage').name]",
+      "tags": "[parameters('tags')]",
+      "sku": "[parameters('storage').sku]",
+      "kind": "[parameters('storage').kind]",
+      "properties": {
+        "accessTier": "[parameters('storage').accessTier]",
+        "isHnsEnabled": "[parameters('storage').gen2]",
+        "softDelete": "[parameters('storage').softDelete]",
+        "retentionDays": "[parameters('storage').retentionDays]",
+        "supportsHttpsTrafficOnly": "[parameters('storage').supportsHttpsTrafficOnly]",
+        "encryption": {
+          "services": {
+            "file": {
+              "enabled": true
+            },
+            "blob": {
+              "enabled": true
+            }
+          },
+          "keySource": "Microsoft.Storage"
+        },
+        "networkAcls": {
+          "bypass": "AzureServices",
+          "virtualNetworkRules": [
+          ],
+          "ipRules": [
+          ],
+          "defaultAction": "Allow"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+      "apiVersion": "2019-04-01",
+      "name": "[concat(parameters('storage').name, '/default/', parameters('storage').containers[copyIndex()])]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', parameters('storage').name)]"
+      ],
+      "copy": {
+        "name": "containercopy",
+        "count": "[length(parameters('storage').containers)]"
+      }
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults",
+      "apiVersion": "2018-02-14",
+      "location": "[parameters('location')]",
+      "name": "[parameters('keyvault').name]",
+      "tags": "[parameters('tags')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/sites', parameters('aciproxy').name)]",
+        "[resourceId('Microsoft.Storage/storageAccounts', parameters('storage').name)]",
+        "[resourceId('Microsoft.Storage/storageAccounts', parameters('functionappstorage').name)]",
+        "[resourceId('Microsoft.Insights/components', parameters('appinsights').name)]",
+        "[resourceId('Microsoft.ContainerRegistry/registries', parameters('containerRegistry').name)]",
+        "[resourceId('Microsoft.DataFactory/factories', parameters('datafactory').name)]"
+      ],
+      "properties": {
+        "firewallState": "Enabled",
+        "enabledForTemplateDeployment": "[parameters('keyvault').enabledForTemplateDeployment]",
+        "enabledForDeployment": "[parameters('keyvault').enabledForDeployment]",
+        "enabledForDiskEncryption": "[parameters('keyvault').enabledForDiskEncryption]",
+        "tenantId": "[subscription().tenantId]",
+        "sku": "[parameters('keyvault').sku]",
+        "networkAcls": {
+          "bypass": "AzureServices",
+          "defaultAction": "Allow"
+        },
+        "accessPolicies": [
+          {
+            "tenantId": "[subscription().tenantId]",
+            "objectId": "[parameters('keyvault_owner_id')]",
+            "permissions": {
+              "keys": [
+                "get",
+                "list",
+                "create",
+                "update"
+              ],
+              "secrets": [
+                "get",
+                "list",
+                "set"
+              ]
+            }
+          },
+          {
+            "tenantId": "[subscription().tenantId]",
+            "objectId": "[parameters('devops_principal_id')]",
+            "permissions": {
+              "secrets": [
+                "get",
+                "list"
+              ]
+            }
+          },
+          {
+            "tenantId": "[subscription().tenantId]",
+            "objectId": "[reference(parameters('aciproxy').name, '2019-08-01', 'Full').identity.principalId]",
+            "permissions": {
+              "secrets": [
+                "get",
+                "list"
+              ]
+            }
+          },
+          {
+            "tenantId": "[subscription().tenantId]",
+            "objectId": "[reference(parameters('datafactory').name, '2018-06-01', 'Full').identity.principalId]",
+            "permissions": {
+              "secrets": [
+                "get",
+                "list"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "name": "[concat(parameters('keyvault').name, '/', 'AZURE-TENANT-ID')]",
+      "apiVersion": "2018-02-14",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', parameters('keyvault').name)]"
+      ],
+      "properties": {
+        "value": "[subscription().tenantId]"
+      }
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "name": "[concat(parameters('keyvault').name, '/', 'AZURE-SUBSCRIPTION-ID')]",
+      "apiVersion": "2018-02-14",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', parameters('keyvault').name)]"
+      ],
+      "properties": {
+        "value": "[subscription().subscriptionId]"
+      }
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "name": "[concat(parameters('keyvault').name, '/', 'AZURE-RESOURCE-GROUP')]",
+      "apiVersion": "2018-02-14",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', parameters('keyvault').name)]"
+      ],
+      "properties": {
+        "value": "[resourceGroup().name]"
+      }
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "name": "[concat(parameters('keyvault').name, '/', 'ACI-PROXY-URL')]",
+      "apiVersion": "2018-02-14",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', parameters('keyvault').name)]",
+        "[resourceId('Microsoft.Web/sites', parameters('aciproxy').name)]"
+      ],
+      "properties": {
+        "value": "[concat('https://', parameters('aciproxy').name, '.azurewebsites.net')]"
+      }
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "name": "[concat(parameters('keyvault').name, '/', 'ACI-PROXY-KEY')]",
+      "apiVersion": "2018-02-14",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', parameters('keyvault').name)]",
+        "[resourceId('Microsoft.Web/sites', parameters('aciproxy').name)]"
+      ],
+      "properties": {
+        "value": "[listkeys(resourceId('Microsoft.Web/sites/host', parameters('aciproxy').name, 'default'), '2019-08-01').functionKeys.default]"
+      }
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "name": "[concat(parameters('keyvault').name, '/', 'DATALAKE-ACC-NAME')]",
+      "apiVersion": "2018-02-14",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', parameters('keyvault').name)]",
+        "[resourceId('Microsoft.Storage/storageAccounts', parameters('storage').name)]"
+      ],
+      "properties": {
+        "value": "[parameters('storage').name]"
+      }
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "name": "[concat(parameters('keyvault').name, '/', 'DATALAKE-ACC-KEY')]",
+      "apiVersion": "2018-02-14",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', parameters('keyvault').name)]",
+        "[resourceId('Microsoft.Storage/storageAccounts', parameters('storage').name)]"
+      ],
+      "properties": {
+        "value": "[listkeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storage').name), '2019-04-01').keys[0].value]"
+      }
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "name": "[concat(parameters('keyvault').name, '/', 'DATALAKE-CONN-STR')]",
+      "apiVersion": "2018-02-14",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', parameters('keyvault').name)]",
+        "[resourceId('Microsoft.Storage/storageAccounts', parameters('storage').name)]"
+      ],
+      "properties": {
+        "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storage').name, ';AccountKey=', listkeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storage').name), '2019-04-01').keys[0].value)]"
+      }
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "name": "[concat(parameters('keyvault').name, '/', 'AzureWebJobsStorage')]",
+      "apiVersion": "2018-02-14",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', parameters('keyvault').name)]",
+        "[resourceId('Microsoft.Storage/storageAccounts', parameters('functionappstorage').name)]"
+      ],
+      "properties": {
+        "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('functionappstorage').name, ';AccountKey=', listkeys(resourceId('Microsoft.Storage/storageAccounts', parameters('functionappstorage').name), '2019-04-01').keys[0].value)]"
+      }
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "name": "[concat(parameters('keyvault').name, '/', 'APPINSIGHTS-INSTRUMENTATIONKEY')]",
+      "apiVersion": "2018-02-14",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', parameters('keyvault').name)]",
+        "[resourceId('Microsoft.Insights/components', parameters('appinsights').name)]"
+      ],
+      "properties": {
+        "value": "[reference(resourceId('Microsoft.Insights/components/', parameters('appinsights').name), '2015-05-01').InstrumentationKey]"
+      }
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "name": "[concat(parameters('keyvault').name, '/', 'APPINSIGHTS-CONN-STR')]",
+      "apiVersion": "2018-02-14",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', parameters('keyvault').name)]",
+        "[resourceId('Microsoft.Insights/components', parameters('appinsights').name)]"
+      ],
+      "properties": {
+        "value": "[reference(resourceId('Microsoft.Insights/components/', parameters('appinsights').name), '2015-05-01').ConnectionString]"
+      }
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "name": "[concat(parameters('keyvault').name, '/', 'ACR-LOGIN-SERVER')]",
+      "apiVersion": "2018-02-14",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', parameters('keyvault').name)]",
+        "[resourceId('Microsoft.ContainerRegistry/registries', parameters('containerRegistry').name)]"
+      ],
+      "properties": {
+        "value": "[reference(resourceId('Microsoft.ContainerRegistry/registries', parameters('containerRegistry').name), '2019-05-01').loginServer]"
+      }
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "name": "[concat(parameters('keyvault').name, '/', 'ACR-USERNAME')]",
+      "apiVersion": "2018-02-14",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', parameters('keyvault').name)]",
+        "[resourceId('Microsoft.ContainerRegistry/registries', parameters('containerRegistry').name)]"
+      ],
+      "properties": {
+        "value": "[listCredentials(resourceId('Microsoft.ContainerRegistry/registries', parameters('containerRegistry').name), '2019-05-01').username]"
+      }
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "name": "[concat(parameters('keyvault').name, '/', 'ACR-PASSWORD')]",
+      "apiVersion": "2018-02-14",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', parameters('keyvault').name)]",
+        "[resourceId('Microsoft.ContainerRegistry/registries', parameters('containerRegistry').name)]"
+      ],
+      "properties": {
+        "value": "[listCredentials(resourceId('Microsoft.ContainerRegistry/registries', parameters('containerRegistry').name), '2019-05-01').passwords[0].value]"
+      }
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2018-09-01-preview",
+      "name": "[guid(resourceId('Microsoft.Web/sites', parameters('aciproxy').name), 'Contributor')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/sites', parameters('aciproxy').name)]"
+      ],
+      "properties": {
+        "roleDefinitionId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', 'b24988ac-6180-42a0-ab88-20f7382dd24c')]",
+        "principalId": "[reference(parameters('aciproxy').name, '2019-08-01', 'Full').identity.principalId]",
+        "scope": "[resourceGroup().id]",
+        "principalType": "ServicePrincipal"
+      }
+    }
+  ],
+  "outputs": {
+  }
+}

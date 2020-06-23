@@ -1,0 +1,117 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "env": {
+      "value": "dev"
+    },
+    "project_name": {
+      "value": "ACIDemo"
+    },
+    "project_abbreviation": {
+      "value": "demo"
+    },
+    "company_abbreviation": {
+      "value": "kg"
+    },
+    "keyvault_owner_id": {
+      "value": "5e990f0e-e12d-4647-b84c-d239c555e374"
+    },
+    "devops_principal_id": {
+      "value": "FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF"
+    },
+    "tags": {
+      "value": {
+        "ENV": "DEV",
+        "PROJECT": "ACIDemo"
+      }
+    },
+    "aciproxy": {
+      "value": {
+        "name": "kgdemoaciproxydev",
+        "kind": "functionapp,linux",
+        "runtimeStack": "python",
+        "linuxFxVersion": "Python|3.7"
+      }
+    },
+    "appserviceplan": {
+      "value": {
+        "name": "kgdemoaspdev",
+        "kind": "linux",
+        "sku": {
+          "name": "Y1",
+          "tier": "Dynamic"
+        },
+        "properties": {
+          "name": "kgdemoaspdev",
+          "computeMode": "Dynamic",
+          "workerSize": 0,
+          "workerSizeId": 0,
+          "numberOfWorkers": 1,
+          "hostingEnvironment": "",
+          "reserved": true
+        }
+      }
+    },
+    "functionappstorage": {
+      "value": {
+        "name": "kgdemofuncstoragedev",
+        "kind": "StorageV2",
+        "sku": {
+          "name": "Standard_LRS",
+          "tier": "Standard"
+        }
+      }
+    },
+    "appinsights": {
+      "value": {
+        "name": "kgdemoappinsightsdev"
+      }
+    },
+    "storage": {
+      "value": {
+        "name": "kgdemodatalakedev",
+        "gen2": false,
+        "softDelete": true,
+        "supportsHttpsTrafficOnly": true,
+        "retentionDays": 7,
+        "kind": "StorageV2",
+        "accessTier": "Hot",
+        "sku": {
+          "name": "Standard_LRS",
+          "tier": "Standard"
+        },
+        "containers": [
+          "datalake"
+        ]
+      }
+    },
+    "keyvault": {
+      "value": {
+        "name": "kgdemokeyvaultdev",
+        "enabledForTemplateDeployment": true,
+        "enabledForDeployment": false,
+        "enabledForDiskEncryption": false,
+        "sku": {
+          "name": "Standard",
+          "family": "A"
+        }
+      }
+    },
+    "containerRegistry": {
+      "value": {
+        "name": "kgdemoacrdev",
+        "acrAdminUserEnabled": true,
+        "sku": {
+          "name": "Basic",
+          "tier": "Basic"
+        }
+      }
+    },
+    "datafactory": {
+      "value": {
+        "name": "kgdemoadfdev"
+      }
+    }
+  }
+}

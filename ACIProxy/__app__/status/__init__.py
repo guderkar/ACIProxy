@@ -67,6 +67,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         return func.HttpResponse(
             body = json.dumps({
                 "message": f"Container Group {cg_name} is in progress",
+                "name": cg_name,
                 "state": cg.instance_view.state
             }),
             headers = {
@@ -94,12 +95,10 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             containers[container.name]["detail_status"] = container.instance_view and container.instance_view.current_state.detail_status
             containers[container.name]["output"] = logs.content
 
-        # clean up
-        aci_client.container_groups.delete(resource_group, cg_name)
-
         return func.HttpResponse(
             body = json.dumps({
                 "message": f"Container Group {cg_name} finished",
+                "name": cg_name,
                 "state": cg.instance_view.state,
                 "containers": containers
             }),

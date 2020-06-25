@@ -2,6 +2,7 @@ import os
 import logging
 import json
 import yaml
+import time
 
 import azure.functions as func
 
@@ -89,7 +90,9 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             # Container Group already running
             return func.HttpResponse(
                 body=json.dumps({
-                    "message": f"Container Group {cg_name} is already running"
+                    "message": f"Container Group {cg_name} is already running",
+                    "name": cg_name,
+                    "state": cg.instance_view.state
                 }),
                 headers={
                     "Content-Type": "application/json"
@@ -113,6 +116,15 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             cg_definition
         )
 
+        # start container group and wait until it's truly started
+        aci_client.container_groups.start(resource_group, cg_name)
+        cg = aci_client.container_groups.get(resource_group, cg_name)
+
+        while cg.instance_view.state not in ["Pending", "Running"]:
+            aci_client.container_groups.start(resource_group, cg_name)
+            cg = aci_client.container_groups.get(resource_group, cg_name)
+            time.sleep(5)
+
     except CloudError as ex:
         return func.HttpResponse(
             body=json.dumps({
@@ -128,7 +140,9 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     if polling == True:
         return func.HttpResponse(
             body=json.dumps({
-                "message": f"Container Group {cg_name} started"
+                "message": f"Container Group {cg_name} started",
+                "name": cg_name,
+                "state": cg.instance_view.state
             }),
             headers={
                 "Content-Type": "application/json",
@@ -141,7 +155,9 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     else:
         return func.HttpResponse(
             body=json.dumps({
-                "message": f"Container Group {cg_name} started"
+                "message": f"Container Group {cg_name} started",
+                "name": cg_name,
+                "state": cg.instance_view.state
             }),
             headers={
                 "Content-Type": "application/json"

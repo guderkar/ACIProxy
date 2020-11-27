@@ -96,7 +96,11 @@ docker push kgdemoacrdev.azurecr.io/container1:latest
 
 Now comes the fun part. Orchestrating containers from Data Factory.
 
-Open Data Factory and create new pipeline, e.g. "Container-Orchestration". And for this pipeline set parameter `env` with value `dev`.
+Open Data Factory and create new global parameter `env` with value `dev`.
+
+![](Docs/images/df0.png)
+
+Now create new pipeline, e.g. "Container-Orchestration".
 
 ![](Docs/images/df1.png)
 
@@ -110,11 +114,11 @@ Then create 5 Web Activities and in each activity check Secure output, choose GE
 
 In each activity fill in URL respectively (dynamic content).
 
-* `@{concat('https://kgdemokeyvault', pipeline().parameters.env, '.vault.azure.net/secrets/ACR-LOGIN-SERVER/?api-version=7.0')}`
-* `@{concat('https://kgdemokeyvault', pipeline().parameters.env, '.vault.azure.net/secrets/ACR-USERNAME/?api-version=7.0')}`
-* `@{concat('https://kgdemokeyvault', pipeline().parameters.env, '.vault.azure.net/secrets/ACR-PASSWORD/?api-version=7.0')}`
-* `@{concat('https://kgdemokeyvault', pipeline().parameters.env, '.vault.azure.net/secrets/ACI-PROXY-URL/?api-version=7.0')}`
-* `@{concat('https://kgdemokeyvault', pipeline().parameters.env, '.vault.azure.net/secrets/ACI-PROXY-KEY/?api-version=7.0')}`
+* `@{concat('https://kgdemokeyvault', pipeline().globalParameters.env, '.vault.azure.net/secrets/ACR-LOGIN-SERVER/?api-version=7.0')}`
+* `@{concat('https://kgdemokeyvault', pipeline().globalParameters.env, '.vault.azure.net/secrets/ACR-USERNAME/?api-version=7.0')}`
+* `@{concat('https://kgdemokeyvault', pipeline().globalParameters.env, '.vault.azure.net/secrets/ACR-PASSWORD/?api-version=7.0')}`
+* `@{concat('https://kgdemokeyvault', pipeline().globalParameters.env, '.vault.azure.net/secrets/ACI-PROXY-URL/?api-version=7.0')}`
+* `@{concat('https://kgdemokeyvault', pipeline().globalParameters.env, '.vault.azure.net/secrets/ACI-PROXY-KEY/?api-version=7.0')}`
 
 ![](Docs/images/df2.png)
 

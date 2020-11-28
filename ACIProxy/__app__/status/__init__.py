@@ -5,14 +5,10 @@ import logging
 import azure.functions as func
 
 from azure.identity import DefaultAzureCredential
-from azure.identity import EnvironmentCredential
-from azure.identity import ManagedIdentityCredential
 from azure.mgmt.resource import ResourceManagementClient
 from azure.mgmt.containerinstance import ContainerInstanceManagementClient
-from azure.common.exceptions import CloudError
+from azure.core.exceptions import AzureError
 
-# temporary solution until MSFT fixes azure.identity package
-from __app__.shared.cred_wrapper import CredentialWrapper
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
 
@@ -36,22 +32,22 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             status_code=500
         )
 
-    credentials = CredentialWrapper()
+    credentials = DefaultAzureCredential()
 
     aci_client = ContainerInstanceManagementClient(
         subscription_id=subscription_id,
-        credentials=credentials
+        credential=credentials
     )
 
     res_client = ResourceManagementClient(
         subscription_id=subscription_id,
-        credentials=credentials
+        credential=credentials
     )
 
     try:
         cg = aci_client.container_groups.get(resource_group, cg_name)
 
-    except CloudError as ex:
+    except AzureError as ex:
         # someone probably deleted container group during run
         return func.HttpResponse(
             body = json.dumps({
@@ -79,9 +75,9 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
     else:
         containers = {}
-                                          
+
         for container in cg.containers:
-            logs = aci_client.container.list_logs(
+            logs = aci_client.containers.list_logs(
                 resource_group,
                 cg_name,
                 container.name

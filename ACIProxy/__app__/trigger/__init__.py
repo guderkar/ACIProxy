@@ -7,14 +7,9 @@ import time
 import azure.functions as func
 
 from azure.identity import DefaultAzureCredential
-from azure.identity import EnvironmentCredential
-from azure.identity import ManagedIdentityCredential
 from azure.mgmt.resource import ResourceManagementClient
 from azure.mgmt.containerinstance import ContainerInstanceManagementClient
-from azure.common.exceptions import CloudError
-
-# temporary solution until MSFT fixes azure.identity package
-from __app__.shared.cred_wrapper import CredentialWrapper
+from azure.core.exceptions import AzureError
 
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
@@ -54,21 +49,21 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             status_code=500
         )
 
-    credentials = CredentialWrapper()
+    credentials = DefaultAzureCredential()
 
     aci_client = ContainerInstanceManagementClient(
         subscription_id=subscription_id,
-        credentials=credentials
+        credential=credentials
     )
 
     res_client = ResourceManagementClient(
         subscription_id=subscription_id,
-        credentials=credentials
+        credential=credentials
     )
 
     cg_name = cg_definition.get('name', None)
     location = cg_definition.get('location', None) or res_client.resource_groups.get(resource_group).location
-    api_version = cg_definition.get('apiVersion', None) or aci_client.api_version
+    api_version = cg_definition.get('apiVersion', None) or aci_client._config.api_version
     cg_definition['location'] = location
     cg_definition['apiVersion'] = api_version
 
@@ -100,32 +95,33 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                 status_code=400
             )
 
-    except CloudError:
-        # container group not find, thats fine
+    except AzureError:
+        # container group not found, thats fine
         pass
+
 
     try:
         # create or update container group
-        res_client.resources.create_or_update(
-            resource_group,
-            "Microsoft.ContainerInstance",
-            "",
-            "containerGroups",
-            cg_name,
-            api_version,
-            cg_definition
+        res_client.resources.begin_create_or_update(
+            resource_group_name=resource_group,
+            resource_provider_namespace="Microsoft.ContainerInstance",
+            parent_resource_path="",
+            resource_type="containerGroups",
+            resource_name=cg_name,
+            api_version=api_version,
+            parameters=cg_definition
         )
 
         # start container group and wait until it's truly started
-        aci_client.container_groups.start(resource_group, cg_name)
+        aci_client.container_groups.begin_start(resource_group, cg_name)
         cg = aci_client.container_groups.get(resource_group, cg_name)
 
         while cg.instance_view.state not in ["Pending", "Running"]:
-            aci_client.container_groups.start(resource_group, cg_name)
+            aci_client.container_groups.begin_start(resource_group, cg_name)
             cg = aci_client.container_groups.get(resource_group, cg_name)
             time.sleep(5)
 
-    except CloudError as ex:
+    except AzureError as ex:
         return func.HttpResponse(
             body=json.dumps({
                 "message": ex.message

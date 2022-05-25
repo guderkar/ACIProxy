@@ -32,7 +32,7 @@ pluggy==0.13.1; python_version >= "3.5" and python_full_version < "3.0.0" or pyt
 portalocker==1.7.1
 py==1.9.0; python_version >= "3.5" and python_full_version < "3.0.0" or python_full_version >= "3.4.0" and python_version >= "3.5"
 pycparser==2.20; python_version >= "2.7" and python_full_version < "3.0.0" or python_full_version >= "3.5.0"
-pyjwt==1.7.1
+pyjwt==2.4.0
 pylint==2.6.0; python_version >= "3.5"
 pyparsing==2.4.7; python_version >= "3.5" and python_full_version < "3.0.0" or python_full_version >= "3.4.0" and python_version >= "3.5"
 pyrsistent==0.17.3; python_version >= "3.5"
